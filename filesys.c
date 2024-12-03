@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 
 	//open the floppy image
 	FILE* floppy;
-	floppy=fopen("floppya.img","r+");
+	floppy = fopen("floppya.img", "r+");
 	if (floppy==0)
 	{
 		printf("floppya.img not found\n");
@@ -93,5 +93,20 @@ int main(int argc, char* argv[])
     fseek(floppy,512*257,SEEK_SET);
     for (i=0; i<512; i++) fputc(dir[i],floppy);
 */
+
+	// if (argc > 0)
+	// {
+	// 	switch (argv[1][0])
+	// 	{
+	// 	case 'D':
+	// 		// delete file
+	// 		break;
+	// 	}
+	// }
+	// else
+	// {
+	// 	printf("Please pass arguments to the program\n");
+	// }
+
 	fclose(floppy);
 }
