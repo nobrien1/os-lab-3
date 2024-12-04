@@ -86,12 +86,13 @@ int main(int argc, char* argv[])
 		printf("\n");
 	}
 
+	// Process command if at least 1 more argument was passed
 	if (argc > 1)
 	{
 		switch (argv[1][0])
 		{
 		case 'D':
-			// delete file
+			// Delete file
 			if (argc >= 3)
 			{
 				deleteFile(argv[2], dir, map, floppy);
@@ -102,11 +103,11 @@ int main(int argc, char* argv[])
 			}
 			break;
 		case 'L':
-			// list files
+			// List files
 			listFiles(dir);
 			break;
 		case 'M':
-			// create file
+			// Create file
 			if (argc >= 3)
 			{
 				createFile(argv[2], dir, map, floppy);
@@ -117,7 +118,7 @@ int main(int argc, char* argv[])
 			}
 			break;
 		case 'P':
-			// print file
+			// Print file
 			if (argc >= 3)
 			{
 				printFile(argv[2], dir, map, floppy);
@@ -157,16 +158,17 @@ void listFiles(char dir[SECTOR_SIZE])
 		if (dir[i] == 0)
 			continue;
 
-		// Print the file name
+		// Print the file name (display all characters even tabs)
 		for (j = 0; j < 8; j++)
 		{
-			if (!isspace(dir[i + j]))
+			if (dir[i + j] != 0)
 				printf("%c", dir[i + j]);
 		}
-		printf(".");
+
 		// Print the file extension
-		if (!isspace(dir[i + 8]))
-			printf("%c", dir[i + 8]);
+		printf(".");
+		if (dir[i + 8] != 0)
+			printf("%c", dir[i + 8]); // File extension at index 8 of the dir entry
 
 		// Print the file size
 		printf("\t%6d bytes\n", SECTOR_SIZE * dir[i + 10]);
@@ -179,28 +181,32 @@ void printFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FIL
 	int i, j, dirIndex, start, length;
 	char buffer[MAX_FILE_SIZE];
 
+	// Check if the filename is too long
 	if (strlen(filename) > 8)
 	{
 		printf("ERROR: File name is too long, please enter a file name with a maximum of 8 characters\n");
 		return;
 	}
 
+	// Get the index of the file in the dir
 	dirIndex = getDirIndex(filename, dir);
 
+	// Check if the file exists
 	if (dirIndex < 0)
 	{
 		printf("ERROR: File not found, please make sure you typed the correct file name\n");
 		return;
 	}
 
+	// Check if the file is a text file
 	if (dir[dirIndex + 8] != 't')
 	{
 		printf("ERROR: File must be a text file to be displayed, please enter a file with extension \".t\"\n");
 		return;
 	}
 
-	start = dir[dirIndex + 9];
-	length = dir[dirIndex + 10];
+	start = dir[dirIndex + 9];	 // Start sector is at index 9 of the dir entry
+	length = dir[dirIndex + 10]; // Length in sectors is at index 10 of the dir entry
 
 	// Load the file into the buffer
 	fseek(floppy, SECTOR_SIZE * start, SEEK_SET);
@@ -232,6 +238,13 @@ void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 		return;
 	}
 
+	// Check if the filename is too long
+	if (strlen(filename) > 8)
+	{
+		printf("ERROR: File name is too long, please enter a file name with a maximum of 8 characters\n");
+		return;
+	}
+
 	// Loop through all dir entries until we find an empty one
 	for (i = 0; i < SECTOR_SIZE; i += 16)
 	{
@@ -241,13 +254,14 @@ void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 		}
 	}
 
+	// Check if a free dir exists
 	if (freeDir == -1)
 	{
 		printf("ERROR: Not enough space for a new file - no more directories available\n");
 		return;
 	}
 
-	// Find a free sector and assign it's index to freeSector
+	// Find a free sector
 	for (i = 0; i < SECTOR_SIZE; i++)
 	{
 		if (map[i] == 0)
@@ -257,6 +271,7 @@ void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 		}
 	}
 
+	// Check if a free sector exists
 	if (freeSector == -1)
 	{
 		printf("ERROR: Not enough space for a new file - no more sectors available\n");
@@ -291,11 +306,12 @@ void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 	for (i = 0; i < SECTOR_SIZE; i++)
 		fputc(content[i], floppy);
 
-	//write the map and directory back to the floppy image
+	// Write the map back to the floppy image
 	fseek(floppy, SECTOR_SIZE * 256, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		fputc(map[i], floppy);
 
+	// Write the dir back to the floppy image
 	fseek(floppy, SECTOR_SIZE * 257, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		fputc(dir[i], floppy);
@@ -307,14 +323,24 @@ void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 	int i, j, start, length, dirIndex;
 	char input[8];
 
+	// Check if the filename is too long
+	if (strlen(filename) > 8)
+	{
+		printf("ERROR: File name is too long, please enter a file name with a maximum of 8 characters\n");
+		return;
+	}
+
+	// Get the index of the file in the dir
 	dirIndex = getDirIndex(filename, dir);
 
+	// Check if the file exists
 	if (dirIndex < 0)
 	{
 		printf("ERROR: File not found, please make sure you typed the filename correctly\n");
 		return;
 	}
 
+	// Confirm deletion
 	printf("Are you sure you want to delete the file? (Y/n): ");
 	fgets(input, 8, stdin);
 
@@ -323,8 +349,8 @@ void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 		return;
 	}
 
-	start = dir[dirIndex + 9];
-	length = dir[dirIndex + 10];
+	start = dir[dirIndex + 9];	 // Start sector is at index 9 of the dir entry
+	length = dir[dirIndex + 10]; // Length in sectors is at index 10 of the dir entry
 
 	// Clear sectors in the map
 	for (i = 0; i < length; i++)
@@ -338,11 +364,12 @@ void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 		dir[dirIndex + i] = 0;
 	}
 
-	// write the map and directory back to the floppy image
+	// Write the map back to the floppy image
 	fseek(floppy, SECTOR_SIZE * 256, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		fputc(map[i], floppy);
 
+	// Write the dir back to the floppy image
 	fseek(floppy, SECTOR_SIZE * 257, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		fputc(dir[i], floppy);
