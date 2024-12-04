@@ -1,2 +1,2 @@
-main: main.c
-	gcc main.c
+filesys: filesys.c
+	gcc filesys.c -o filesys
