@@ -27,18 +27,21 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 
 // Define constants
 #define SECTOR_SIZE 512
+#define NUM_SECTORS 512
+#define SECTORS_TRACKED 511
 #define MAX_FILE_SIZE 12288
 #define DIR_SECTOR 257
 #define MAP_SECTOR 256
 
 // Define function prototypes
-void listFiles(char dir[SECTOR_SIZE]);
-void printFile(char *fileName, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy);
-void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy);
-void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy);
+void listFiles(char dir[SECTOR_SIZE], char map[NUM_SECTORS]);
+void printFile(char *fileName, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy);
+void createFile(char *filename, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy);
+void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy);
 int getDirIndex(char *filename, char dir[SECTOR_SIZE]);
 
 int main(int argc, char* argv[])
@@ -55,7 +58,7 @@ int main(int argc, char* argv[])
 	}
 
 	//load the disk map from sector 256
-	char map[SECTOR_SIZE];
+	char map[NUM_SECTORS];
 	fseek(floppy, SECTOR_SIZE * 256, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		map[i]=fgetc(floppy);
@@ -65,26 +68,6 @@ int main(int argc, char* argv[])
 	fseek(floppy, SECTOR_SIZE * 257, SEEK_SET);
 	for (i = 0; i < SECTOR_SIZE; i++)
 		dir[i]=fgetc(floppy);
-
-	// print disk map
-	printf("Disk usage map:\n");
-	printf("      0 1 2 3 4 5 6 7 8 9 A B C D E F\n");
-	printf("     --------------------------------\n");
-	for (i=0; i<16; i++) {
-		switch(i) {
-			case 15: printf("0xF_ "); break;
-			case 14: printf("0xE_ "); break;
-			case 13: printf("0xD_ "); break;
-			case 12: printf("0xC_ "); break;
-			case 11: printf("0xB_ "); break;
-			case 10: printf("0xA_ "); break;
-			default: printf("0x%d_ ", i); break;
-		}
-		for (j=0; j<16; j++) {
-			if (map[16*i+j]==-1) printf(" X"); else printf(" .");
-		}
-		printf("\n");
-	}
 
 	// Process command if at least 1 more argument was passed
 	if (argc > 1)
@@ -104,7 +87,7 @@ int main(int argc, char* argv[])
 			break;
 		case 'L':
 			// List files
-			listFiles(dir);
+			listFiles(dir, map);
 			break;
 		case 'M':
 			// Create file
@@ -142,9 +125,9 @@ int main(int argc, char* argv[])
 }
 
 // List files and sizes in bytes
-void listFiles(char dir[SECTOR_SIZE])
+void listFiles(char dir[SECTOR_SIZE], char map[NUM_SECTORS])
 {
-	int i, j;
+	int i, j, sectorsUsed = 0;
 
 	// Split into 16 byte entries
 	// first 8 bytes are the file name
@@ -173,10 +156,19 @@ void listFiles(char dir[SECTOR_SIZE])
 		// Print the file size
 		printf("\t%6d bytes\n", SECTOR_SIZE * dir[i + 10]);
 	}
+
+	for (i = 0; i < NUM_SECTORS; i++)
+	{
+		if (map[i] == -1)
+			sectorsUsed++;
+	}
+
+	printf("-----------------------------------------\n");
+	printf("%d bytes used; %d bytes available\n", SECTOR_SIZE * sectorsUsed, SECTOR_SIZE * (SECTORS_TRACKED - sectorsUsed));
 }
 
 // Print the contents of a file
-void printFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy)
+void printFile(char *filename, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy)
 {
 	int i, j, dirIndex, start, length;
 	char buffer[MAX_FILE_SIZE];
@@ -226,7 +218,7 @@ void printFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FIL
 }
 
 // Creates a file and writes the contents to the floppy
-void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy)
+void createFile(char *filename, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy)
 {
 	int i, j, found, freeDir = -1, freeSector = -1;
 	char content[SECTOR_SIZE];
@@ -318,7 +310,7 @@ void createFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FI
 }
 
 // Delete the file with the matching filename (doesn't delete data just dir and map entries)
-void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[SECTOR_SIZE], FILE *floppy)
+void deleteFile(char *filename, char dir[SECTOR_SIZE], char map[NUM_SECTORS], FILE *floppy)
 {
 	int i, j, start, length, dirIndex;
 	char input[8];
